@@ -1,0 +1,146 @@
+<template>
+<div class="container">
+<h1>Vue.js + Github</h1>
+    <p class="lead">
+        Página que lista issues de um repositório do Github, usando Vue.js.
+    </p>
+
+    <div class="alert alert-danger" v-show="response.status === 'error'">
+			{{ response.message }}
+    </div>
+
+    <div class="row">
+        <div class="col">
+            <div class="form-group">
+                <input type="text" class="form-control"
+									v-model="username"
+									placeholder="github username">
+            </div>
+        </div>
+
+        <div class="col">
+            <div class="form-group">
+                <input type="text" class="form-control"
+									v-model="repository"
+									placeholder="github repositório">
+            </div>
+        </div>
+
+        <div class="col-3">
+            <div class="form-group">
+                <button class="btn btn-success" @click.prevent.stop="getIssues()">GO</button>
+                <button class="btn btn-danger" @click.prevent.stop="reset()">LIMPAR</button>
+            </div>
+        </div>
+    </div>
+
+    <br><hr><br>
+
+    <table class="table table-sm table-bordered">
+        <thead>
+        <tr>
+            <th width="100" class="text-center">Número</th>
+            <th class="text-center">Título</th>
+        </tr>
+        </thead>
+
+        <tbody>
+					<tr v-show="loader.getIssues">
+						<td class="text-center" colspan="2">
+							<img src="/static/loading.svg" alt="Carregando">
+						</td>
+					</tr>
+
+	        <tr v-show="showIssues"
+							v-for="issue in issues"
+							:key="issue.number">
+						<td class="text-center">
+							<router-link :to="{
+									name: 'GitHubIssue',
+									params: { name: username, repo: repository, issue: issue.number }}"
+							>{{ issue.number }}
+							</router-link>
+						</td>
+						<td>{{ issue.title }}</td>
+	        </tr>
+	        <tr v-show="noIssues">
+	            <td class="text-center" colspan="2">Nenhuma issue encontrada!</td>
+	        </tr>
+        </tbody>
+    </table>
+</div>
+</template>
+
+<script>
+import axios from 'axios';
+
+export default{
+	name: 'GitHubIssues',
+	created() {
+		this.getLocalData();
+	},
+	data() {
+	  return {
+			username: '',
+			repository: '',
+			issues: [],
+			loader: {
+				getIssues: false,
+				getIssue: false,
+			},
+			response: {
+				status: '',
+				message: '',
+			},
+		};
+	},
+	computed: {
+		showIssues() {
+			return !!this.issues.length && !this.loader.getIssues;
+		},
+		noIssues() {
+			return !this.issues.length && !this.loader.getIssues;
+		},
+	},
+	methods: {
+		reset() {
+			this.username = '';
+			this.repository = '';
+			this.issues = [];
+			localStorage.removeItem('gitHubIssues');
+		},
+		resetResponse() {
+			this.response.status = '';
+			this.response.message = '';
+			this.issues = [];
+		},
+		getIssues() {
+			this.resetResponse();
+			if (this.username && this.repository) {
+				localStorage.setItem('gitHubIssues', JSON.stringify({ username: this.username, repository: this.repository }));
+				this.loader.getIssues = true;
+				const url = `https://api.github.com/repos/${this.username}/${this.repository}/issues`;
+				axios.get(url).then((response) => {
+					this.issues = response.data;
+				}).catch((error) => {
+					// eslint-disable-next-line
+					console.log(error.response.data);
+					this.response.status = 'error';
+					this.response.message = `Erro ao buscar. Mensagem: ${error.response.data.message}`;
+				}).finally(() => {
+					this.loader.getIssues = false;
+				});
+			}
+		},
+		getLocalData() {
+			const localData = JSON.parse(localStorage.getItem('gitHubIssues'));
+			if (localData && localData.username && localData.repository) {
+			    this.username = localData.username;
+			    this.repository = localData.repository;
+			    this.getIssues();
+			}
+		},
+	},
+};
+
+</script>
